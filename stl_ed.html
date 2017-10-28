@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<!--
+
+== EDITEUR DE MATRICE DE TRAVERSES : editeur spécifique du site Gilboo.Carton.free.fr ==
+
+Purpose:
+Permet de composer une matrice de traverses entrecroisées par dessus un volume (fichier STL).
+  
+
+History:
+  2016/06/07: 0.1.0: version initiale (GD)
+
+-->
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+  <title>Editeur de fichier STL</title>
+  <script src="jquery/jquery-1.9.1.js?0.5.0"></script>
+  <script src="jquery/jquery.hammer.js?0.5.0"></script>
+  <script src="lightgl.js"></script>
+  <script src="csg.js?0.5.0"></script>
+  <script src="formats.js?0.5.0"></script>
+  <script src="openjscad.js?0.5.0"></script>
+  <script src="openscad.js?0.5.0"></script>
+  <script src="js/jscad-worker.js?0.5.0" charset="utf-8"></script>
+  <script src="js/jscad-function.js?0.5.0" charset="utf-8"></script>
+  <link rel="stylesheet" href="stl_ed.css" type="text/css">
+</head>
+
+<body onload="loadProcessor()">
+<!-- setup display of the errors as required by OpenJSCAD.js -->
+  <div class="jscad-container">
+    <div id="header">
+      <div id="errordiv">Ooops!</div>
+    </div>
+
+<!-- setup display of the viewer, i.e. canvas -->
+    <div oncontextmenu="return false;" id="viewerContext"></div>
+
+<!-- setup display of the design parameters, as required by OpenJSCAD.js -->
+<!-- set display: block to display this -->
+    <div id="parametersdiv" style="display: block;"></div>
+
+<!-- setup display of the status, as required by OpenJSCAD.js -->
+<!-- set display: block to display this -->
+    <div id="tail" style="display: block;">
+      <div id="statusdiv"></div>
+    </div>
+  </div>
+<!-- define the design and the parameters -->
+
+<input type="file" id="FSTL" name="F[]" accept=".stl" onchange = "LoadSTL()"/>
+
+<textarea id="zone_code" style="display:none;">
+function cA(){ return polygon([[-13,-20],[5,18],[12,18],[16,-20],[11,-20],[10,-10],[-4,-10],[-8,-20]]).subtract(polygon([[8,14],[10,-6],[-2,-6]]));}
+function cutY(o,y,r){if(y === undefined)y=0;if(r === undefined)r=false;var p = CSG.Plane.fromPoints([200,y,0],[0,y,-200],[-200,y,200]);if(r === true)p=p.flipped();return o.cutByPlane(p);}
+function projectY(o){var p=CSG.OrthoNormalBasis.GetCartesian('X','Y');return o.projectToOrthoNormalBasis(p);}
+function recupParams(chaine){var P=chaine.split(','),tableau=[];tableau[0]=parseFloat(P[0]);if(P.length==1){tableau[1]=tableau[0];tableau[2]=tableau[0];}else{tableau[1]=parseFloat(P[1]);tableau[2]=parseFloat(P[2]);}return tableau;}
+function getParameterDefinitions(){return[
+{name:'g1',type:'group',caption:'Volume'},
+{ name: 'echelle', type: 'text', initial:'1', caption: 'Echelle X [,Y,Z]:'},
+{ name: 'rotation', type: 'text', initial: '0,0,0', caption: 'Rotation X,Y,Z:'},
+{ name: 'translat', type: 'text', initial: '0,0,0', caption: 'Translation X,Y,Z:'},
+{ name: 'centrage', type: 'choice', initial:1, caption:'Auto centrage ?', captions:['oui','non'], values:[1,0]},
+{ name: 'matrice', type: 'choice', initial:1, caption:'Voir matrice ?', captions:['oui','non'], values:[1,0]}
+];}
+
+function main(params){
+	var ech,rot,tra,V,vx,vy,vz;
+	
+	V = volume();
+	
+	if(params.centrage == 1){
+		b = V.getBounds();
+		V = V.translate([-(b[1].x+b[0].x)/2,-(b[1].y+b[0].y)/2,b[0].z-b[1].z+(b[1].z-b[0].z)/2]);
+	}
+	
+	ech = recupParams(params.echelle);
+	rot = recupParams(params.rotation);
+	tra = recupParams(params.translat);
+	V = rotate([rot[0],rot[1],rot[2]], V.translate([tra[0],tra[1],tra[2]])).scale([ech[0],ech[1],ech[2]]).setColor([0.5,1,0.5,0.5]);
+	
+	if(params.matrice == 1){
+		b = V.getBounds(); vx = b[1].x-b[0].x; vy = b[1].y-b[0].y; vz = b[1].z-b[0].z;	
+		CH = cube({size:[vx, 1, vz],center: true}).translate([0,0,vz/2]).setColor([0,0,1,0.4]);
+		CV = cube({size:[1, vy, vz],center: true}).translate([0,0,vz/2]).setColor([1,0,0,0.4]);
+		V = V.union([CH,CV]);
+	}
+	
+	return V;
+}
+</textarea>
+<script type="text/javascript">
+var gProcessor = null;        // required by OpenJScad.org
+var edit_code = document.getElementById("zone_code").value;
+
+function loadProcessor() {
+	var vc = document.getElementById('viewerContext');
+	gProcessor = new OpenJsCad.Processor(vc);
+}
+
+function LoadSTL(evt){	
+	var f = FSTL.files[0];
+	var reader = new FileReader();
+	reader.onload = function(e) {
+		var stl = reader.result;
+		var code = edit_code +"\n"+ parseSTL(stl, f.name, "volume");
+		gProcessor.setJsCad(code,f.name);
+	}
+	reader.readAsBinaryString(f,"UTF-8");
+}
+
+function recup_tab(nom, chaine){
+	var z = document.getElementsByName(nom)[0];
+	z.value = chaine;
+}
+
+// actions de fin d'initialisation
+document.getElementById('FSTL').addEventListener('change', LoadSTL, false);
+</script>
+</body>
+
+</html> 
